@@ -1,0 +1,6 @@
+dist/
+node_modules/
+
+# Generated on publish by scripts/copy-publish-assets.mjs (prepack); not source.
+README.md
+LICENSE

@@ -1,0 +1,61 @@
+{
+	"name": "pi-folder-model",
+	"version": "0.0.0",
+	"description": "Pi extension: pin the default model per folder, independently of pi's global defaultModel. New sessions in a folder start on that folder's model; global drift never leaks in.",
+	"license": "AGPL-3.0-or-later",
+	"keywords": [
+		"pi-extension",
+		"pi-package",
+		"model",
+		"per-folder",
+		"defaultModel"
+	],
+	"author": "wighawag",
+	"homepage": "https://github.com/wighawag/pi-folder-model/tree/main/packages/pi-folder-model#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/wighawag/pi-folder-model.git",
+		"directory": "packages/pi-folder-model"
+	},
+	"bugs": {
+		"url": "https://github.com/wighawag/pi-folder-model/issues"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"src"
+	],
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		]
+	},
+	"dependencies": {
+		"@earendil-works/pi-ai": "^0.80.3",
+		"@earendil-works/pi-coding-agent": "^0.80.3",
+		"@earendil-works/pi-tui": "^0.80.3"
+	},
+	"devDependencies": {
+		"@types/node": "^25.2.0",
+		"as-soon": "^0.1.5",
+		"tsx": "^4.21.0",
+		"typescript": "^5.3.3",
+		"vitest": "^4.0.18"
+	},
+	"scripts": {
+		"build": "tsc",
+		"dev": "as-soon -w src pnpm build",
+		"prepack": "node ../../scripts/copy-publish-assets.mjs",
+		"test": "vitest run",
+		"test:watch": "vitest"
+	}
+}
