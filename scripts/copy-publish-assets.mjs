@@ -17,7 +17,7 @@ import {fileURLToPath} from 'node:url';
 export const PUBLISH_ASSETS = ['README.md', 'LICENSE'];
 
 // GitHub repo the published README's links should resolve against.
-export const GITHUB_REPO = 'wighawag/webveil';
+export const GITHUB_REPO = 'wighawag/pi-folder-model';
 
 // Repo-relative path prefixes that do NOT ship inside the npm tarball, so a
 // relative link to them is dead on npmjs.com and MUST be rewritten to an
