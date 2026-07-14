@@ -37,8 +37,21 @@ Install as a pi package (add to your pi `packages`/`extensions` config), then:
 - `/fmodel` — open a selector, pin + apply the chosen model for this folder
 - `/fmodel anthropic/claude-sonnet-4-5` — pin + apply directly
 - `/fmodel clear` — remove this folder's pin (the global default is left untouched)
+- `/fmodel default` — open a selector, set + apply the **fallback default** (used in any folder with no pin of its own)
+- `/fmodel default openai/gpt-5.2` — set the fallback default directly
+- `/fmodel default clear` — remove the fallback default
 
-A `folder:<model>` status indicator shows when the current folder is pinned.
+The status indicator shows `folder:<model>` when the folder has its own pin, or `default:<model>` when it fell back to the `"*"` default. Setting the default only live-switches the model in an **unpinned** folder; if the current folder is pinned, its own pin wins and setting the default leaves the running model untouched.
+
+### Set the fallback default (so drift stops haunting you)
+
+The whole reason this extension exists is that pi's global default **drifts**: it becomes whatever model you last switched to, in whatever folder. A folder pin fixes that folder, but any folder you have **not** pinned still falls through to that drifting global. Set the fallback default once, and every unpinned folder lands on it instead:
+
+```
+/fmodel default anthropic/claude-sonnet-4-5
+```
+
+With `"*"` set, an unpinned folder no longer inherits whatever you last picked elsewhere. On startup in an unpinned folder with no default set yet, the extension nudges you once (an info notification) to run `/fmodel default` for exactly this reason.
 
 ## Develop
 
