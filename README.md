@@ -12,7 +12,7 @@ This is a pnpm workspace monorepo.
 
 ## How it works
 
-- The preference lives in a single **home-level registry** at `<agentDir>/per-folder-models.json` (`~/.pi/agent/per-folder-models.json` by default; honors the `PI_AGENT_DIR` override), keyed by **absolute folder path**:
+- The preference lives in a single **home-level registry** at `<agentDir>/per-folder-models.json` (`~/.pi/agent/per-folder-models.json` by default; honors the `PI_CODING_AGENT_DIR` override), keyed by **absolute folder path**:
 
   ```json
   {

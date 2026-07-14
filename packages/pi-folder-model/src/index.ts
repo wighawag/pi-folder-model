@@ -13,7 +13,7 @@
 // unpinned folders on a stable model instead of drifting with the global.
 //
 // Storage: a single home-level registry at `<agentDir>/per-folder-models.json`
-// (respecting the PI_AGENT_DIR override via getAgentDir()), keyed by ABSOLUTE
+// (respecting the PI_CODING_AGENT_DIR override via getAgentDir()), keyed by ABSOLUTE
 // folder path:
 //
 //   {
@@ -62,7 +62,7 @@ export type Registry = Record<string, FolderModel>;
  */
 export const DEFAULT_KEY = '*';
 
-/** Path to the home-level registry (honors the PI_AGENT_DIR override). */
+/** Path to the home-level registry (honors the PI_CODING_AGENT_DIR override). */
 export function registryPath(): string {
 	return join(getAgentDir(), 'per-folder-models.json');
 }
