@@ -2,6 +2,11 @@
   "name": "pi-folder-model-monorepo",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.28.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wighawag/pi-folder-model.git"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
     "ldenv": "^0.3.16",
@@ -15,6 +20,7 @@
     "---------------------- PUBLISH --------------------": "",
     "prepublishOnly": "pnpm format:check && pnpm build",
     "release": "pnpm prepublishOnly && git push --all && pnpm changeset publish && git push --tags",
+    "release:ci": "pnpm prepublishOnly && pnpm changeset publish",
     "---------------------- FORMAT ----------------------": "",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
