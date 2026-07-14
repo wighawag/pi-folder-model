@@ -1,6 +1,6 @@
 {
 	"name": "pi-folder-model",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"description": "Pi extension: pin the default model per folder, independently of pi's global defaultModel. New sessions in a folder start on that folder's model; global drift never leaks in.",
 	"license": "AGPL-3.0-or-later",
 	"keywords": [
