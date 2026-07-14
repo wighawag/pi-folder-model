@@ -9,8 +9,12 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import folderModel, {
+	DEFAULT_KEY,
+	getDefaultModel,
 	getFolderModel,
 	readRegistry,
+	resolvePin,
+	setDefaultModel,
 	setFolderModel,
 	type FolderModel,
 } from '../src/index.js';
@@ -80,6 +84,48 @@ describe('registry helpers', () => {
 		const raw = readFileSync(regPath, 'utf-8');
 		expect(raw.endsWith('\n')).toBe(true);
 		expect(raw).toContain('  "/work/a"');
+	});
+});
+
+describe('fallback default (the "*" entry)', () => {
+	it('round-trips the default under the "*" key', () => {
+		setDefaultModel(claude, regPath);
+		expect(getDefaultModel(regPath)).toEqual(claude);
+		expect(readRegistry(regPath)[DEFAULT_KEY]).toEqual(claude);
+	});
+
+	it('resolvePin prefers a folder pin over the default', () => {
+		setDefaultModel(gpt, regPath);
+		setFolderModel('/work/a', claude, regPath);
+		expect(resolvePin('/work/a', regPath)).toEqual({
+			pin: claude,
+			source: 'folder',
+		});
+	});
+
+	it('resolvePin falls back to the default for an unpinned folder', () => {
+		setDefaultModel(gpt, regPath);
+		expect(resolvePin('/work/unpinned', regPath)).toEqual({
+			pin: gpt,
+			source: 'default',
+		});
+	});
+
+	it('resolvePin is undefined when neither layer is set', () => {
+		expect(resolvePin('/work/unpinned', regPath)).toBeUndefined();
+	});
+
+	it('setting a folder pin never writes the "*" key (no collision)', () => {
+		setFolderModel('/work/a', claude, regPath);
+		expect(getDefaultModel(regPath)).toBeUndefined();
+	});
+
+	it('clearing the default leaves folder pins untouched', () => {
+		setDefaultModel(gpt, regPath);
+		setFolderModel('/work/a', claude, regPath);
+		setDefaultModel(undefined, regPath);
+		expect(getDefaultModel(regPath)).toBeUndefined();
+		expect(getFolderModel('/work/a', regPath)).toEqual(claude);
 	});
 });
 
@@ -201,7 +247,7 @@ describe('extension wiring', () => {
 		expect(setModel).toHaveBeenCalledTimes(1);
 	});
 
-	it('session_start is a no-op (no setModel) when the folder has no pin', async () => {
+	it('session_start is a no-op (no setModel) when neither layer is set', async () => {
 		const {pi, setModel, runSessionStart} = fakePi();
 		folderModel(pi, {registryPath: regPath});
 		const ctx = fakeCtx('/work/unpinned', [
@@ -211,6 +257,128 @@ describe('extension wiring', () => {
 		await runSessionStart(ctx);
 
 		expect(setModel).not.toHaveBeenCalled();
+	});
+
+	it('session_start nudges once when neither a folder pin nor a default is set', async () => {
+		const {pi, runSessionStart} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/unpinned', []);
+
+		await runSessionStart(ctx);
+
+		const nudge = ctx.notifications.find((n: any) =>
+			n.msg.includes('/fmodel default'),
+		);
+		expect(nudge?.level).toBe('info');
+	});
+
+	it('session_start does NOT nudge when a fallback default exists', async () => {
+		setDefaultModel(gpt, regPath);
+		const {pi, runSessionStart} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/unpinned', [
+			{provider: 'openai', id: 'gpt-5.2'},
+		]);
+
+		await runSessionStart(ctx);
+
+		expect(
+			ctx.notifications.some((n: any) => n.msg.includes('/fmodel default')),
+		).toBe(false);
+	});
+
+	it('/fmodel default in an UNPINNED folder applies live and shows default:', async () => {
+		const {pi, setModel, runCommand} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/a', [{provider: 'openai', id: 'gpt-5.2'}]);
+
+		await runCommand('default openai/gpt-5.2', ctx);
+
+		// The default governs an unpinned folder, so it live-switches here.
+		expect(setModel).toHaveBeenCalledTimes(1);
+		expect(getDefaultModel(regPath)).toEqual(gpt);
+		// The folder itself stays unpinned; only the shared default was written.
+		expect(getFolderModel('/work/a', regPath)).toBeUndefined();
+		expect(ctx.status['folder-model']).toBe('default:gpt-5.2');
+	});
+
+	it('/fmodel default in a PINNED folder persists but does NOT swap the model or status', async () => {
+		setFolderModel('/work/a', claude, regPath);
+		const {pi, setModel, runCommand} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/a', [
+			{provider: 'anthropic', id: 'claude-sonnet-4-5'},
+			{provider: 'openai', id: 'gpt-5.2'},
+		]);
+
+		await runCommand('default openai/gpt-5.2', ctx);
+
+		// The folder pin wins, so setting the default must not touch the running
+		// model, and status keeps showing the folder pin.
+		expect(setModel).not.toHaveBeenCalled();
+		expect(getDefaultModel(regPath)).toEqual(gpt);
+		expect(getFolderModel('/work/a', regPath)).toEqual(claude);
+		expect(ctx.status['folder-model']).toBe('folder:claude-sonnet-4-5');
+	});
+
+	it('/fmodel provider/model swaps only the folder, never the default', async () => {
+		setDefaultModel(gpt, regPath);
+		const {pi, setModel, runCommand} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/a', [
+			{provider: 'anthropic', id: 'claude-sonnet-4-5'},
+		]);
+
+		await runCommand('anthropic/claude-sonnet-4-5', ctx);
+
+		expect(setModel).toHaveBeenCalledTimes(1);
+		expect(getFolderModel('/work/a', regPath)).toEqual(claude);
+		// The shared default is untouched by a folder pin.
+		expect(getDefaultModel(regPath)).toEqual(gpt);
+		expect(ctx.status['folder-model']).toBe('folder:claude-sonnet-4-5');
+	});
+
+	it('/fmodel default clear removes only the fallback', async () => {
+		setDefaultModel(gpt, regPath);
+		setFolderModel('/work/a', claude, regPath);
+		const {pi, runCommand} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/a', []);
+
+		await runCommand('default clear', ctx);
+
+		expect(getDefaultModel(regPath)).toBeUndefined();
+		expect(getFolderModel('/work/a', regPath)).toEqual(claude);
+	});
+
+	it('session_start applies the fallback default in an unpinned folder', async () => {
+		setDefaultModel(gpt, regPath);
+		const {pi, setModel, runSessionStart} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/unpinned', [
+			{provider: 'openai', id: 'gpt-5.2'},
+		]);
+
+		await runSessionStart(ctx);
+
+		expect(setModel).toHaveBeenCalledTimes(1);
+		// Status reflects the default layer, not a folder pin.
+		expect(ctx.status['folder-model']).toBe('default:gpt-5.2');
+	});
+
+	it('a folder pin wins over the fallback default at session_start', async () => {
+		setDefaultModel(gpt, regPath);
+		setFolderModel('/work/a', claude, regPath);
+		const {pi, runSessionStart} = fakePi();
+		folderModel(pi, {registryPath: regPath});
+		const ctx = fakeCtx('/work/a', [
+			{provider: 'anthropic', id: 'claude-sonnet-4-5'},
+			{provider: 'openai', id: 'gpt-5.2'},
+		]);
+
+		await runSessionStart(ctx);
+
+		expect(ctx.status['folder-model']).toBe('folder:claude-sonnet-4-5');
 	});
 
 	it('never touches a settings.json anywhere (only the registry file is written)', async () => {

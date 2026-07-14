@@ -16,13 +16,15 @@ This is a pnpm workspace monorepo.
 
   ```json
   {
+    "*": {"provider": "anthropic", "model": "claude-sonnet-4-5"},
     "/home/me/dev/project-a": {"provider": "anthropic", "model": "claude-sonnet-4-5"},
     "/home/me/dev/project-b": {"provider": "openai", "model": "gpt-5.2"}
   }
   ```
 
-- On **session start**, if the current folder has a pin, the model is applied via `pi.setModel` (live, no restart).
-- `/fmodel` writes the folder's entry **and** applies the model immediately.
+- The reserved `"*"` key is a **fallback default** applied in any folder that has no pin of its own. An absolute folder path can never be `"*"`, so it never collides with a real folder entry.
+- On **session start**, the model is resolved in two layers: the folder's own pin first, the `"*"` default second. Whichever wins is applied via `pi.setModel` (live, no restart). If neither is set, the folder rides pi's own global default.
+- `/fmodel` writes the folder's entry **and** applies the model immediately; `/fmodel default` does the same for the `"*"` fallback.
 
 Keeping the state **outside** the folder means it works in untrusted/read-only projects and never pollutes a project's `.pi/`. Writes are read-modify-write on the one entry, so concurrent pi sessions pinning **different** folders do not clobber each other.
 
@@ -46,6 +48,16 @@ pnpm build
 pnpm test
 pnpm format:check
 ```
+
+## Publishing
+
+Releases go through [changesets](https://github.com/changesets/changesets) and npm Trusted Publishing (OIDC), so there is no `NPM_TOKEN` secret. The flow:
+
+1. Land PRs that include a changeset (`.changeset/*.md`) on `main`.
+2. The `release` workflow opens or updates a "Version Packages" PR that bumps versions and updates changelogs.
+3. Merging that PR runs `changeset publish` from CI, which publishes with provenance via the registered trusted publisher.
+
+npm ties a trusted publisher to an existing package, so the **first** publish is a one-time manual `pnpm release` from a clean checkout. After that package exists on npm, register this repo + `release.yml` as its trusted publisher in the package's npmjs.com settings, and every later release goes through the tokenless OIDC flow above.
 
 ## License
 
